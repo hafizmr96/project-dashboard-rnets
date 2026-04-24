@@ -14,21 +14,18 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { FilterDatePicker } from "@/components/filter-date-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  Client,
   colors,
   countryName,
   getPoAlertLabel,
-  invalidateDashboardDataCache,
   isPoAlertProject,
-  loadDashboardData,
   poId,
   Project,
-  Site,
-  SitePerformance,
   statusCategory,
 } from "@/lib/project-data";
+import { useDashboardControls, useDashboardDataStatus, useDashboardEntities, useSelectedProject } from "@/stores/dashboard-store";
 
 type ProjectFormState = {
   project_code: string;
@@ -74,44 +71,20 @@ const emptyForm = (): ProjectFormState => ({
 export const Route = createFileRoute("/")({ component: DashboardPage });
 
 function DashboardPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [sites, setSites] = useState<Site[]>([]);
-  const [sitePerformance, setSitePerformance] = useState<SitePerformance[]>([]);
-  const [selected, setSelected] = useState<Project | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [form, setForm] = useState<ProjectFormState>(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
-  const [sort, setSort] = useState<keyof Project>("start_date");
-  const [filters, setFilters] = useState({ q: "", client: "All", country: "All", site: "All", status: "All", scope: "All", from: "", to: "" });
-
-  async function loadProjects(options?: { force?: boolean }) {
-    const data = await loadDashboardData(options);
-    setClients(data.clients);
-    setSites(data.sites);
-    setProjects(data.projects);
-    setSitePerformance(data.sitePerformance);
-  }
+  const { projects, clients, sites, sitePerformance } = useDashboardEntities();
+  const { filters, sort, setFilter, resetFilters, setSort, selectProject, clearSelection } = useDashboardControls();
+  const { error, isLoading, loadDashboardData, refreshDashboardData } = useDashboardDataStatus();
+  const selected = useSelectedProject("dashboard");
 
   useEffect(() => {
-    let alive = true;
-
-    (async () => {
-      try {
-        await loadProjects();
-      } catch (error) {
-        if (alive) {
-          console.error("Project load failed", error);
-          window.alert(error instanceof Error ? error.message : "Failed to load projects.");
-        }
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, []);
+    loadDashboardData().catch((loadError) => {
+      console.error("Project load failed", loadError);
+    });
+  }, [loadDashboardData]);
 
   const rows = useMemo(
     () =>
@@ -150,6 +123,7 @@ function DashboardPage() {
     .sort((a, b) => b.value - a.value)
     .slice(0, 5);
   const filteredSitePerformance = sitePerformance.filter((site) => filters.country === "All" || site.country_id === filters.country).slice(0, 6);
+  const hasActiveFilters = Object.entries(filters).some(([key, value]) => (key === "q" || key === "from" || key === "to" ? value !== "" : value !== "All"));
   const poBreakdown = [
     { name: "With PO", value: rows.filter((project) => poId(project.po_tracking) === "OK").length },
     { name: "SWOP", value: rows.filter((project) => poId(project.po_tracking) === "SWOP").length },
@@ -258,8 +232,7 @@ function DashboardPage() {
         throw new Error(result.error ?? "Unable to save project.");
       }
 
-      invalidateDashboardDataCache();
-      await loadProjects({ force: true });
+      await refreshDashboardData();
       setIsFormOpen(false);
       setEditingProject(null);
       setForm(emptyForm());
@@ -287,9 +260,7 @@ function DashboardPage() {
         throw new Error(result.error ?? "Unable to delete project.");
       }
 
-      invalidateDashboardDataCache();
-      await loadProjects({ force: true });
-      if (selected?.id === project.id) setSelected(null);
+      await refreshDashboardData();
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Unable to delete project.");
     } finally {
@@ -359,11 +330,20 @@ function DashboardPage() {
             </button>
           </div>
           <div className="flex items-center gap-2">
+            {isLoading && <div className="finance-chip">Syncing data</div>}
             <Link to="/alerts" className="finance-chip">PO alerts {alerts.length}</Link>
             <Link to="/data-dictionary" className="finance-chip">Reference</Link>
           </div>
         </div>
       </div>
+
+      {error && (
+        <div className="page-gutter mt-4">
+          <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        </div>
+      )}
 
       <div className="page-gutter mt-4 grid gap-3 grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Total Projects" value={rows.length} icon={ArrowUpRight} tone="text-primary" />
@@ -374,30 +354,50 @@ function DashboardPage() {
 
       <div className="page-gutter mt-4">
         <div className="finance-card">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-sm font-bold text-foreground">Project Filters</div>
+              <div className="mt-1 text-xs text-muted-foreground">Search, narrow down, or fully clear date ranges without falling back to today.</div>
+            </div>
+            <button
+              type="button"
+              onClick={resetFilters}
+              disabled={!hasActiveFilters}
+              className="inline-flex items-center justify-center rounded-xl border border-border bg-secondary px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              Reset filters
+            </button>
+          </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-8">
             <FilterField label="Search" className="min-w-0 md:col-span-2 xl:col-span-2">
               <div className="relative">
                 <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                <input className="finance-input pl-9" placeholder="Search project code, client, site" value={filters.q} onChange={(event) => setFilters({ ...filters, q: event.target.value })} />
+                <input className="finance-input pl-9" placeholder="Search project code, client, site" value={filters.q} onChange={(event) => setFilter("q", event.target.value)} />
               </div>
             </FilterField>
             {filterConfigs.map(({ key, label, allLabel, values }) => (
               <FilterField key={key} label={label} className="min-w-0">
-                <select aria-label={label} className="finance-input" value={filters[key]} onChange={(event) => setFilters({ ...filters, [key]: event.target.value })}>
+                <select aria-label={label} className="finance-input" value={filters[key]} onChange={(event) => setFilter(key, event.target.value)}>
                   <option value="All">{allLabel}</option>
                   {options(values).map((value) => <option key={value}>{value}</option>)}
                 </select>
               </FilterField>
             ))}
             <FilterField label="Start Date From" className="min-w-0 md:col-span-2 xl:col-span-1">
-              <div className="finance-date-shell">
-                <input type="date" className="finance-input finance-date-input" value={filters.from} onChange={(event) => setFilters({ ...filters, from: event.target.value })} />
-              </div>
+              <FilterDatePicker
+                ariaLabel="Start date from"
+                value={filters.from}
+                placeholder="Select start date"
+                onChange={(value) => setFilter("from", value)}
+              />
             </FilterField>
             <FilterField label="Start Date To" className="min-w-0 md:col-span-2 xl:col-span-1">
-              <div className="finance-date-shell">
-                <input type="date" className="finance-input finance-date-input" value={filters.to} onChange={(event) => setFilters({ ...filters, to: event.target.value })} />
-              </div>
+              <FilterDatePicker
+                ariaLabel="Start date to"
+                value={filters.to}
+                placeholder="Select end date"
+                onChange={(value) => setFilter("to", value)}
+              />
             </FilterField>
           </div>
         </div>
@@ -557,16 +557,16 @@ function DashboardPage() {
               <tbody>
                 {rows.map((project) => (
                   <tr key={project.id} className="border-t border-border hover:bg-accent/60 transition-colors">
-                    <td className="px-4 py-3 font-mono font-semibold cursor-pointer" onClick={() => setSelected(project)}>{project.project_code}</td>
-                    <td className="px-4 py-3 cursor-pointer" onClick={() => setSelected(project)}>{project.clients?.name ?? "Unspecified"}</td>
-                    <td className="px-4 py-3 cursor-pointer" onClick={() => setSelected(project)}>{project.project_sites?.[0]?.sites?.site_code ?? "Unspecified"}</td>
-                    <td className="px-4 py-3 cursor-pointer" onClick={() => setSelected(project)}>{project.status}</td>
-                    <td className="px-4 py-3 font-mono font-semibold cursor-pointer" onClick={() => setSelected(project)}>{poId(project.po_tracking)}</td>
-                    <td className="px-4 py-3 cursor-pointer" onClick={() => setSelected(project)}>{project.po_tracking?.po_compliance_status ?? "-"}</td>
-                    <td className="px-4 py-3 cursor-pointer" onClick={() => setSelected(project)}>{project.scope_type ?? "-"}</td>
-                    <td className="px-4 py-3 cursor-pointer" onClick={() => setSelected(project)}>{project.start_date ?? "-"}</td>
-                    <td className="px-4 py-3 cursor-pointer" onClick={() => setSelected(project)}>{project.completed_date ?? "-"}</td>
-                    <td className="px-4 py-3 cursor-pointer" onClick={() => setSelected(project)}>{project.duration_days ?? "-"}</td>
+                    <td className="px-4 py-3 font-mono font-semibold cursor-pointer" onClick={() => selectProject(project.id, "dashboard")}>{project.project_code}</td>
+                    <td className="px-4 py-3 cursor-pointer" onClick={() => selectProject(project.id, "dashboard")}>{project.clients?.name ?? "Unspecified"}</td>
+                    <td className="px-4 py-3 cursor-pointer" onClick={() => selectProject(project.id, "dashboard")}>{project.project_sites?.[0]?.sites?.site_code ?? "Unspecified"}</td>
+                    <td className="px-4 py-3 cursor-pointer" onClick={() => selectProject(project.id, "dashboard")}>{project.status}</td>
+                    <td className="px-4 py-3 font-mono font-semibold cursor-pointer" onClick={() => selectProject(project.id, "dashboard")}>{poId(project.po_tracking)}</td>
+                    <td className="px-4 py-3 cursor-pointer" onClick={() => selectProject(project.id, "dashboard")}>{project.po_tracking?.po_compliance_status ?? "-"}</td>
+                    <td className="px-4 py-3 cursor-pointer" onClick={() => selectProject(project.id, "dashboard")}>{project.scope_type ?? "-"}</td>
+                    <td className="px-4 py-3 cursor-pointer" onClick={() => selectProject(project.id, "dashboard")}>{project.start_date ?? "-"}</td>
+                    <td className="px-4 py-3 cursor-pointer" onClick={() => selectProject(project.id, "dashboard")}>{project.completed_date ?? "-"}</td>
+                    <td className="px-4 py-3 cursor-pointer" onClick={() => selectProject(project.id, "dashboard")}>{project.duration_days ?? "-"}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <button onClick={() => openEditForm(project)} className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-accent">
@@ -594,7 +594,7 @@ function DashboardPage() {
           <div className="space-y-3">
             {alerts.length ? (
               alerts.slice(0, 6).map((project) => (
-                <button key={project.id} onClick={() => setSelected(project)} className="w-full text-left rounded-xl border border-border bg-secondary px-4 py-3 hover:bg-accent transition-colors">
+                <button key={project.id} onClick={() => selectProject(project.id, "dashboard")} className="w-full text-left rounded-xl border border-border bg-secondary px-4 py-3 hover:bg-accent transition-colors">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="font-mono text-sm font-semibold text-foreground">{project.project_code}</div>
@@ -611,7 +611,7 @@ function DashboardPage() {
         </section>
       </div>
 
-      <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
+      <Dialog open={!!selected} onOpenChange={(open) => !open && clearSelection()}>
         <DialogContent className="max-w-2xl gap-0 overflow-hidden border border-border bg-card p-0 text-foreground">
           <DialogHeader className="border-b border-border px-4 py-4 pr-12 sm:px-6">
             <DialogTitle className="text-2xl font-black tracking-tight">{selected?.project_code}</DialogTitle>

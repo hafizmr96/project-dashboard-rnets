@@ -193,6 +193,64 @@
     cursor: pointer;
   }
 
+  .finance-date-trigger {
+    @apply flex w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-input bg-secondary px-3 py-2.5 text-left text-sm text-foreground outline-none transition-all duration-200;
+  }
+
+  .finance-date-trigger:hover {
+    background: color-mix(in srgb, var(--color-secondary) 74%, white 3%);
+  }
+
+  .finance-date-trigger-open {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 34%, transparent);
+  }
+
+  .finance-date-trigger-empty {
+    color: var(--color-muted-foreground);
+  }
+
+  .finance-date-icon-wrap {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background/80 text-primary;
+  }
+
+  .finance-date-popover {
+    width: min(21rem, calc(100vw - 2rem));
+    border-radius: 1.5rem;
+    border-color: color-mix(in srgb, var(--color-border) 90%, white 3%);
+    background:
+      radial-gradient(circle at top right, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 34%),
+      linear-gradient(180deg, hsl(222 47% 7%), hsl(222 44% 8%));
+    padding: 0.9rem;
+    box-shadow: 0 28px 60px rgba(2, 6, 23, 0.5);
+  }
+
+  .finance-calendar {
+    width: 100%;
+  }
+
+  .finance-date-actions {
+    @apply mt-3 flex items-center justify-between gap-2 border-t border-border/80 pt-3;
+  }
+
+  .finance-date-action {
+    @apply inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors;
+  }
+
+  .finance-date-action:hover {
+    background: color-mix(in srgb, var(--color-secondary) 72%, white 2%);
+    color: var(--color-foreground);
+  }
+
+  .finance-date-action-primary {
+    @apply bg-primary/12 text-primary;
+  }
+
+  .finance-date-action-primary:hover {
+    background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+    color: hsl(197 95% 72%);
+  }
+
   .sidebar-link {
     @apply w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition-all text-muted-foreground hover:bg-accent hover:text-foreground;
   }

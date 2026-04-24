@@ -2,31 +2,23 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ShieldAlert } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { countryName, getPoAlertLabel, isPoAlertProject, loadDashboardData, poId, Project } from "@/lib/project-data";
+import { countryName, getPoAlertLabel, isPoAlertProject, poId } from "@/lib/project-data";
+import { useDashboardControls, useDashboardDataStatus, useDashboardEntities, useSelectedProject } from "@/stores/dashboard-store";
 
 export const Route = createFileRoute("/alerts")({ component: AlertsPage });
 
 function AlertsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selected, setSelected] = useState<Project | null>(null);
   const [query, setQuery] = useState("");
+  const { projects } = useDashboardEntities();
+  const { error, isLoading, loadDashboardData } = useDashboardDataStatus();
+  const { clearSelection, selectProject } = useDashboardControls();
+  const selected = useSelectedProject("alerts");
 
   useEffect(() => {
-    let alive = true;
-
-    (async () => {
-      try {
-        const data = await loadDashboardData();
-        if (alive) setProjects(data.projects);
-      } catch (error) {
-        if (alive) window.alert(error instanceof Error ? error.message : "Failed to load alerts.");
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, []);
+    loadDashboardData().catch((loadError) => {
+      console.error("Alert load failed", loadError);
+    });
+  }, [loadDashboardData]);
 
   const alerts = useMemo(
     () =>
@@ -61,6 +53,7 @@ function AlertsPage() {
             </div>
           </div>
           <p className="mt-4 text-sm text-muted-foreground">Only PO-related exceptions appear here. Pipeline and scope-only items are intentionally excluded.</p>
+          {isLoading && <div className="mt-4 finance-chip">Syncing data</div>}
         </div>
 
         <div className="finance-card">
@@ -68,6 +61,14 @@ function AlertsPage() {
           <input className="finance-input" placeholder="Project code, client, site, PO status" value={query} onChange={(event) => setQuery(event.target.value)} />
         </div>
       </div>
+
+      {error && (
+        <div className="page-gutter mt-4">
+          <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        </div>
+      )}
 
       <div className="page-gutter mt-4">
         <section className="table-wrap">
@@ -93,7 +94,7 @@ function AlertsPage() {
               <tbody>
                 {alerts.length ? (
                   alerts.map((project) => (
-                    <tr key={project.id} onClick={() => setSelected(project)} className="cursor-pointer border-t border-border hover:bg-accent/60 transition-colors">
+                    <tr key={project.id} onClick={() => selectProject(project.id, "alerts")} className="cursor-pointer border-t border-border hover:bg-accent/60 transition-colors">
                       <td className="px-4 py-3 font-mono font-semibold">{project.project_code}</td>
                       <td className="px-4 py-3">{project.clients?.name ?? "Unspecified"}</td>
                       <td className="px-4 py-3">{project.project_sites?.[0]?.sites?.site_code ?? "Unspecified"}</td>
@@ -119,7 +120,7 @@ function AlertsPage() {
         </section>
       </div>
 
-      <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
+      <Dialog open={!!selected} onOpenChange={(open) => !open && clearSelection()}>
         <DialogContent className="max-w-2xl bg-card border border-border text-foreground">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black tracking-tight">{selected?.project_code}</DialogTitle>
