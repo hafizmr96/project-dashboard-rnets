@@ -20,14 +20,12 @@ export type Project = {
 export type Site = { id: string; site_code: string; country: string | null };
 export type Client = { id: string; name: string };
 export type SitePerformance = { site: string; country_id: string | null; total_projects: number; completed: number; total_additional_scope: number };
-export type MonthlyTrend = { completed_month: string; country_id: string | null; completions: number; avg_duration: number | null };
 
 export type DashboardData = {
   projects: Project[];
   clients: Client[];
   sites: Site[];
   sitePerformance: SitePerformance[];
-  monthlyTrend: MonthlyTrend[];
 };
 
 type DashboardCacheEntry = {
@@ -107,7 +105,7 @@ export async function loadDashboardData({ force = false }: { force?: boolean } =
 
   const db = supabase as any;
   inFlightDashboardRequest = (async () => {
-    const [projectRes, clientRes, siteRes, projectSiteRes, poRes, sitePerfRes, monthlyRes] = await Promise.all([
+    const [projectRes, clientRes, siteRes, projectSiteRes, poRes, sitePerfRes] = await Promise.all([
       db
         .from("projects")
         .select("id,project_code,country,description,status,scope_type,as_count,start_date,completed_date,duration_days,client_id")
@@ -117,10 +115,9 @@ export async function loadDashboardData({ force = false }: { force?: boolean } =
       db.from("project_sites").select("project_id,site_id"),
       db.from("po_tracking").select("project_id,po_available,po_compliance_status"),
       db.from("vw_site_performance").select("*").order("total_projects", { ascending: false }),
-      db.from("vw_monthly_completion_trend").select("*").order("completed_month", { ascending: true }),
     ]);
 
-    const failedResponse = [projectRes, clientRes, siteRes, projectSiteRes, poRes, sitePerfRes, monthlyRes].find((response) => response.error);
+    const failedResponse = [projectRes, clientRes, siteRes, projectSiteRes, poRes, sitePerfRes].find((response) => response.error);
     if (failedResponse?.error) {
       throw new Error(failedResponse.error.message);
     }
@@ -146,7 +143,6 @@ export async function loadDashboardData({ force = false }: { force?: boolean } =
         project_sites: sitesByProject[project.id] ?? [],
       })),
       sitePerformance: sitePerfRes.data ?? [],
-      monthlyTrend: monthlyRes.data ?? [],
     };
 
     writeDashboardCache(data);

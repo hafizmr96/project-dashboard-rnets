@@ -4,15 +4,16 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Download,
+  Globe2,
   Pencil,
   Plus,
   Search,
-  ShieldAlert,
+  Target,
   Trash2,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Client,
@@ -138,6 +139,7 @@ function DashboardPage() {
   const withPo = rows.filter((project) => project.po_tracking?.po_available).length;
   const inProgress = rows.filter((project) => statusCategory(project.status) === "In Progress").length;
   const alerts = rows.filter(isPoAlertProject);
+  const completionRate = rows.length ? Math.round((completed / rows.length) * 100) : 0;
   const topClients = Object.values(
     rows.reduce((acc, project) => {
       const key = project.clients?.name ?? "Unspecified";
@@ -157,6 +159,38 @@ function DashboardPage() {
     stage,
     value: rows.filter((project) => statusCategory(project.status) === stage).length,
   }));
+  const completionTrend = Object.values(
+    rows.reduce((acc, project) => {
+      if (project.status !== "Completed" || !project.completed_date) return acc;
+
+      const monthKey = project.completed_date.slice(0, 7);
+      acc[monthKey] = {
+        monthKey,
+        label: formatMonthLabel(monthKey),
+        completions: (acc[monthKey]?.completions ?? 0) + 1,
+      };
+      return acc;
+    }, {} as Record<string, { monthKey: string; label: string; completions: number }>),
+  )
+    .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
+    .slice(-8);
+  const scopeAnalysis = ["Pipeline", "In Progress", "Closed"].map((stage) => ({
+    stage,
+    original: rows.filter((project) => statusCategory(project.status) === stage && (project.scope_type ?? "Original") !== "Additional").length,
+    additional: rows.filter((project) => statusCategory(project.status) === stage && project.scope_type === "Additional").length,
+  }));
+  const countryCoverage = Object.values(
+    rows.reduce((acc, project) => {
+      const key = countryName(project.country);
+      acc[key] = acc[key] ?? { country: key, total: 0, completed: 0, poAlerts: 0 };
+      acc[key].total += 1;
+      if (project.status === "Completed") acc[key].completed += 1;
+      if (isPoAlertProject(project)) acc[key].poAlerts += 1;
+      return acc;
+    }, {} as Record<string, { country: string; total: number; completed: number; poAlerts: number }>),
+  )
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 6);
 
   const options = (fn: (project: Project) => string | null | undefined) => Array.from(new Set(projects.map(fn).filter(Boolean) as string[])).sort();
 
@@ -335,7 +369,7 @@ function DashboardPage() {
         <MetricCard label="Total Projects" value={rows.length} icon={ArrowUpRight} tone="text-primary" />
         <MetricCard label="Completed" value={completed} icon={TrendingUp} tone="text-primary" />
         <MetricCard label="In Progress" value={inProgress} icon={TrendingDown} tone="text-muted-foreground" />
-        <MetricCard label="Projects Without PO" value={alerts.length} icon={ShieldAlert} tone="text-destructive" />
+        <MetricCard label="Completion Rate" value={`${completionRate}%`} icon={Target} tone="text-primary" />
       </div>
 
       <div className="page-gutter mt-4">
@@ -369,8 +403,28 @@ function DashboardPage() {
         </div>
       </div>
 
-      <div className="page-gutter mt-4 grid gap-4 xl:grid-cols-2">
-        <ChartCard title="PO Distribution" chip="This view">
+      <div className="page-gutter mt-4 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <ChartCard title="Completion Trend" chip="Completed projects">
+          {completionTrend.length ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={completionTrend} margin={{ top: 8, right: 6, left: -18, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(216 30% 18%)" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748B" }} tickLine={false} axisLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#64748B" }} tickLine={false} axisLine={false} />
+                <Tooltip />
+                <Line type="monotone" dataKey="completions" stroke="hsl(199 89% 48%)" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyLine text="No completed projects in this filtered view" />
+          )}
+        </ChartCard>
+
+        <div className="finance-card">
+          <div className="flex justify-between items-center mb-4">
+            <div className="section-title">PO Compliance</div>
+            <div className="finance-chip">{withPo} with PO</div>
+          </div>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie data={poBreakdown} dataKey="value" nameKey="name" innerRadius={60} outerRadius={88} paddingAngle={4}>
@@ -379,8 +433,21 @@ function DashboardPage() {
               <Tooltip />
             </PieChart>
           </ResponsiveContainer>
-        </ChartCard>
+          <div className="mt-4 grid gap-2">
+            {poBreakdown.map((item, index) => (
+              <div key={item.name} className="flex items-center justify-between rounded-xl border border-border bg-secondary px-3 py-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors[index % colors.length] }} />
+                  <span className="text-muted-foreground">{item.name}</span>
+                </div>
+                <span className="font-semibold text-foreground">{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
+      <div className="page-gutter mt-4 grid gap-4 xl:grid-cols-3">
         <ChartCard title="Status Funnel" chip="Filtered">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={statusFunnel} layout="vertical" margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
@@ -389,6 +456,50 @@ function DashboardPage() {
               <YAxis type="category" dataKey="stage" width={82} tick={{ fontSize: 11, fill: "#CBD5E1" }} tickLine={false} axisLine={false} />
               <Tooltip />
               <Bar dataKey="value" fill="hsl(199 89% 48%)" radius={[0, 10, 10, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <div className="finance-card">
+          <div className="flex justify-between items-center mb-4">
+            <div className="section-title">Country Coverage</div>
+            <div className="finance-chip">
+              <Globe2 size={12} className="mr-1" />
+              {countryCoverage.length} markets
+            </div>
+          </div>
+          <div className="space-y-3">
+            {countryCoverage.length ? (
+              countryCoverage.map((item) => (
+                <div key={item.country} className="rounded-xl border border-border bg-secondary p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-foreground">{item.country}</div>
+                    <div className="text-xs text-muted-foreground">{item.total} projects</div>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{item.completed} completed</span>
+                    <span>{item.poAlerts} PO alerts</span>
+                  </div>
+                  <div className="mt-3 h-1.5 rounded-full bg-border">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${(item.completed / Math.max(1, item.total)) * 100}%` }} />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <EmptyLine text="No country data in this filtered view" />
+            )}
+          </div>
+        </div>
+
+        <ChartCard title="Scope Analysis" chip="Original vs additional">
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={scopeAnalysis} margin={{ top: 4, right: 0, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(216 30% 18%)" horizontal vertical={false} />
+              <XAxis dataKey="stage" tick={{ fontSize: 11, fill: "#64748B" }} tickLine={false} axisLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#64748B" }} tickLine={false} axisLine={false} />
+              <Tooltip />
+              <Bar dataKey="original" stackId="scope" fill="hsl(199 89% 48%)" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="additional" stackId="scope" fill="hsl(38 92% 50%)" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -573,6 +684,16 @@ function MetricCard({ label, value, icon: Icon, tone }: { label: string; value: 
       <div className="mt-3 text-2xl font-black tracking-tight text-foreground">{value}</div>
     </div>
   );
+}
+
+function formatMonthLabel(monthKey: string) {
+  const [year, month] = monthKey.split("-").map(Number);
+  if (!year || !month) return monthKey;
+
+  return new Date(year, month - 1, 1).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function ChartCard({ title, chip, children }: { title: string; chip: string; children: React.ReactNode }) {
