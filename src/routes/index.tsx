@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
-  BookOpen,
   Download,
   Pencil,
   Plus,
@@ -20,10 +19,10 @@ import {
   colors,
   countryName,
   getPoAlertLabel,
+  invalidateDashboardDataCache,
   isPoAlertProject,
   loadDashboardData,
   poId,
-  poLabel,
   Project,
   Site,
   SitePerformance,
@@ -86,8 +85,8 @@ function DashboardPage() {
   const [sort, setSort] = useState<keyof Project>("start_date");
   const [filters, setFilters] = useState({ q: "", client: "All", country: "All", site: "All", status: "All", scope: "All", from: "", to: "" });
 
-  async function loadProjects() {
-    const data = await loadDashboardData();
+  async function loadProjects(options?: { force?: boolean }) {
+    const data = await loadDashboardData(options);
     setClients(data.clients);
     setSites(data.sites);
     setProjects(data.projects);
@@ -225,7 +224,8 @@ function DashboardPage() {
         throw new Error(result.error ?? "Unable to save project.");
       }
 
-      await loadProjects();
+      invalidateDashboardDataCache();
+      await loadProjects({ force: true });
       setIsFormOpen(false);
       setEditingProject(null);
       setForm(emptyForm());
@@ -253,7 +253,8 @@ function DashboardPage() {
         throw new Error(result.error ?? "Unable to delete project.");
       }
 
-      await loadProjects();
+      invalidateDashboardDataCache();
+      await loadProjects({ force: true });
       if (selected?.id === project.id) setSelected(null);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Unable to delete project.");
@@ -339,8 +340,8 @@ function DashboardPage() {
 
       <div className="page-gutter mt-4">
         <div className="finance-card">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-8">
-            <FilterField label="Search" className="min-w-0 sm:col-span-2 xl:col-span-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-8">
+            <FilterField label="Search" className="min-w-0 md:col-span-2 xl:col-span-2">
               <div className="relative">
                 <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
                 <input className="finance-input pl-9" placeholder="Search project code, client, site" value={filters.q} onChange={(event) => setFilters({ ...filters, q: event.target.value })} />
@@ -354,11 +355,11 @@ function DashboardPage() {
                 </select>
               </FilterField>
             ))}
-            <FilterField label="Start Date From" className="min-w-0">
-              <input type="date" className="finance-input" value={filters.from} onChange={(event) => setFilters({ ...filters, from: event.target.value })} />
+            <FilterField label="Start Date From" className="min-w-0 md:col-span-2 xl:col-span-1">
+              <input type="date" className="finance-input finance-date-input" value={filters.from} onChange={(event) => setFilters({ ...filters, from: event.target.value })} />
             </FilterField>
-            <FilterField label="Start Date To" className="min-w-0">
-              <input type="date" className="finance-input" value={filters.to} onChange={(event) => setFilters({ ...filters, to: event.target.value })} />
+            <FilterField label="Start Date To" className="min-w-0 md:col-span-2 xl:col-span-1">
+              <input type="date" className="finance-input finance-date-input" value={filters.to} onChange={(event) => setFilters({ ...filters, to: event.target.value })} />
             </FilterField>
           </div>
         </div>
