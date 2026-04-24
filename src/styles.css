@@ -169,13 +169,24 @@
     @apply min-w-0 w-full rounded-xl border border-input bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary;
   }
 
+  .finance-date-shell {
+    @apply w-full overflow-hidden rounded-xl;
+  }
+
   .finance-date-input {
+    display: block;
     min-inline-size: 0;
     max-inline-size: 100%;
+    width: 100%;
+    overflow: hidden;
   }
 
   .finance-date-input::-webkit-date-and-time-value {
     text-align: left;
+  }
+
+  .finance-date-input::-webkit-datetime-edit {
+    overflow: hidden;
   }
 
   .finance-date-input::-webkit-calendar-picker-indicator {

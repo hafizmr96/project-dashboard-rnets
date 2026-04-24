@@ -356,10 +356,14 @@ function DashboardPage() {
               </FilterField>
             ))}
             <FilterField label="Start Date From" className="min-w-0 md:col-span-2 xl:col-span-1">
-              <input type="date" className="finance-input finance-date-input" value={filters.from} onChange={(event) => setFilters({ ...filters, from: event.target.value })} />
+              <div className="finance-date-shell">
+                <input type="date" className="finance-input finance-date-input" value={filters.from} onChange={(event) => setFilters({ ...filters, from: event.target.value })} />
+              </div>
             </FilterField>
             <FilterField label="Start Date To" className="min-w-0 md:col-span-2 xl:col-span-1">
-              <input type="date" className="finance-input finance-date-input" value={filters.to} onChange={(event) => setFilters({ ...filters, to: event.target.value })} />
+              <div className="finance-date-shell">
+                <input type="date" className="finance-input finance-date-input" value={filters.to} onChange={(event) => setFilters({ ...filters, to: event.target.value })} />
+              </div>
             </FilterField>
           </div>
         </div>
@@ -497,12 +501,13 @@ function DashboardPage() {
       </div>
 
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="max-w-2xl bg-card border border-border text-foreground">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl gap-0 overflow-hidden border border-border bg-card p-0 text-foreground">
+          <DialogHeader className="border-b border-border px-4 py-4 pr-12 sm:px-6">
             <DialogTitle className="text-2xl font-black tracking-tight">{selected?.project_code}</DialogTitle>
           </DialogHeader>
           {selected && (
-            <div className="space-y-5 text-sm">
+            <div className="max-h-[min(70dvh,38rem)] overflow-y-auto px-4 py-4 text-sm sm:px-6 sm:py-6">
+              <div className="space-y-5">
               <p className="text-muted-foreground">{selected.description ?? "No description provided."}</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Info label="Client" value={selected.clients?.name ?? "Unspecified"} />
@@ -517,31 +522,34 @@ function DashboardPage() {
                   {getPoAlertLabel(selected)}
                 </div>
               )}
+              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-3xl bg-card border border-border text-foreground">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl gap-0 overflow-hidden border border-border bg-card p-0 text-foreground">
+          <DialogHeader className="border-b border-border px-4 py-4 pr-12 sm:px-6">
             <DialogTitle className="text-2xl font-black tracking-tight">{editingProject ? `Edit ${editingProject.project_code}` : "Create project"}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Project code"><input className="finance-input" value={form.project_code} onChange={(event) => updateForm("project_code", event.target.value)} /></Field>
-            <Field label="Status"><select className="finance-input" value={form.status} onChange={(event) => updateForm("status", event.target.value)}>{statusOptions.map((option) => <option key={option}>{option}</option>)}</select></Field>
-            <Field label="Client"><select className="finance-input" value={form.client_id} onChange={(event) => updateForm("client_id", event.target.value)}><option value="">Unspecified</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></Field>
-            <Field label="Site"><select className="finance-input" value={form.site_id} onChange={(event) => updateForm("site_id", event.target.value)}><option value="">Unspecified</option>{sites.map((site) => <option key={site.id} value={site.id}>{site.site_code}</option>)}</select></Field>
-            <Field label="Country"><input className="finance-input" value={form.country} onChange={(event) => updateForm("country", event.target.value.toUpperCase())} /></Field>
-            <Field label="Scope type"><select className="finance-input" value={form.scope_type} onChange={(event) => updateForm("scope_type", event.target.value)}><option value="">Unspecified</option>{scopeOptions.map((option) => <option key={option}>{option}</option>)}</select></Field>
-            <Field label="Additional scope count"><input type="number" min="0" className="finance-input" value={form.as_count} onChange={(event) => updateForm("as_count", event.target.value)} /></Field>
-            <Field label="PO available"><select className="finance-input" value={form.po_available ? "yes" : "no"} onChange={(event) => updateForm("po_available", event.target.value === "yes")}><option value="no">No</option><option value="yes">Yes</option></select></Field>
-            <Field label="Start date"><input type="date" className="finance-input" value={form.start_date} onChange={(event) => updateForm("start_date", event.target.value)} /></Field>
-            <Field label="Completed date"><input type="date" className="finance-input" value={form.completed_date} onChange={(event) => updateForm("completed_date", event.target.value)} /></Field>
-            <Field label="PO compliance status" className="sm:col-span-2"><select className="finance-input" value={form.po_compliance_status} onChange={(event) => updateForm("po_compliance_status", event.target.value)}>{poStatusOptions.map((option) => <option key={option}>{option}</option>)}</select></Field>
-            <Field label="Description" className="sm:col-span-2"><textarea className="finance-input min-h-28" value={form.description} onChange={(event) => updateForm("description", event.target.value)} /></Field>
+          <div className="max-h-[min(68dvh,42rem)] overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Project code"><input className="finance-input" value={form.project_code} onChange={(event) => updateForm("project_code", event.target.value)} /></Field>
+              <Field label="Status"><select className="finance-input" value={form.status} onChange={(event) => updateForm("status", event.target.value)}>{statusOptions.map((option) => <option key={option}>{option}</option>)}</select></Field>
+              <Field label="Client"><select className="finance-input" value={form.client_id} onChange={(event) => updateForm("client_id", event.target.value)}><option value="">Unspecified</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></Field>
+              <Field label="Site"><select className="finance-input" value={form.site_id} onChange={(event) => updateForm("site_id", event.target.value)}><option value="">Unspecified</option>{sites.map((site) => <option key={site.id} value={site.id}>{site.site_code}</option>)}</select></Field>
+              <Field label="Country"><input className="finance-input" value={form.country} onChange={(event) => updateForm("country", event.target.value.toUpperCase())} /></Field>
+              <Field label="Scope type"><select className="finance-input" value={form.scope_type} onChange={(event) => updateForm("scope_type", event.target.value)}><option value="">Unspecified</option>{scopeOptions.map((option) => <option key={option}>{option}</option>)}</select></Field>
+              <Field label="Additional scope count"><input type="number" min="0" className="finance-input" value={form.as_count} onChange={(event) => updateForm("as_count", event.target.value)} /></Field>
+              <Field label="PO available"><select className="finance-input" value={form.po_available ? "yes" : "no"} onChange={(event) => updateForm("po_available", event.target.value === "yes")}><option value="no">No</option><option value="yes">Yes</option></select></Field>
+              <Field label="Start date"><div className="finance-date-shell"><input type="date" className="finance-input finance-date-input" value={form.start_date} onChange={(event) => updateForm("start_date", event.target.value)} /></div></Field>
+              <Field label="Completed date"><div className="finance-date-shell"><input type="date" className="finance-input finance-date-input" value={form.completed_date} onChange={(event) => updateForm("completed_date", event.target.value)} /></div></Field>
+              <Field label="PO compliance status" className="sm:col-span-2"><select className="finance-input" value={form.po_compliance_status} onChange={(event) => updateForm("po_compliance_status", event.target.value)}>{poStatusOptions.map((option) => <option key={option}>{option}</option>)}</select></Field>
+              <Field label="Description" className="sm:col-span-2"><textarea className="finance-input min-h-28" value={form.description} onChange={(event) => updateForm("description", event.target.value)} /></Field>
+            </div>
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 border-t border-border bg-card px-4 py-4 sm:flex-row sm:justify-end sm:px-6">
             <button onClick={() => setIsFormOpen(false)} className="rounded-xl border border-border px-4 py-2 text-sm font-semibold">Cancel</button>
             <button onClick={submitProject} disabled={isSaving} className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground disabled:opacity-50">
               {isSaving ? "Saving..." : editingProject ? "Save changes" : "Create project"}
