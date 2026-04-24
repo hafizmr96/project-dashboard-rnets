@@ -166,7 +166,7 @@
   }
 
   .finance-input {
-    @apply w-full rounded-xl border border-input bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary;
+    @apply min-w-0 w-full rounded-xl border border-input bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary;
   }
 
   .sidebar-link {

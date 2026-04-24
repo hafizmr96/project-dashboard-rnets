@@ -48,6 +48,13 @@ type ProjectFormState = {
 const statusOptions = ["Presales", "G1", "G2", "G3", "G4", "G5", "G6", "Completed"];
 const scopeOptions = ["Original", "Additional"];
 const poStatusOptions = ["PO available", "Started without PO", "Completed without PO", "No PO"];
+const filterConfigs = [
+  { key: "client", label: "Client", allLabel: "All clients", values: (project: Project) => project.clients?.name },
+  { key: "country", label: "Country", allLabel: "All countries", values: (project: Project) => project.country },
+  { key: "site", label: "Site", allLabel: "All sites", values: (project: Project) => project.project_sites?.[0]?.sites?.site_code },
+  { key: "status", label: "Status", allLabel: "All statuses", values: (project: Project) => project.status },
+  { key: "scope", label: "Scope", allLabel: "All scopes", values: (project: Project) => project.scope_type },
+] as const;
 
 const emptyForm = (): ProjectFormState => ({
   project_code: "",
@@ -152,7 +159,7 @@ function DashboardPage() {
     value: rows.filter((project) => statusCategory(project.status) === stage).length,
   }));
 
-  const options = (fn: (project: Project) => string | null | undefined) => ["All", ...Array.from(new Set(projects.map(fn).filter(Boolean) as string[])).sort()];
+  const options = (fn: (project: Project) => string | null | undefined) => Array.from(new Set(projects.map(fn).filter(Boolean) as string[])).sort();
 
   function updateForm<K extends keyof ProjectFormState>(key: K, value: ProjectFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -332,24 +339,27 @@ function DashboardPage() {
 
       <div className="page-gutter mt-4">
         <div className="finance-card">
-          <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-8">
-            <label className="relative md:col-span-2 xl:col-span-2">
-              <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
-              <input className="finance-input pl-9" placeholder="Search project code, client, site" value={filters.q} onChange={(event) => setFilters({ ...filters, q: event.target.value })} />
-            </label>
-            {[
-              ["client", "Client", options((project) => project.clients?.name)],
-              ["country", "Country", options((project) => project.country)],
-              ["site", "Site", options((project) => project.project_sites?.[0]?.sites?.site_code)],
-              ["status", "Status", options((project) => project.status)],
-              ["scope", "Scope", options((project) => project.scope_type)],
-            ].map(([key, label, values]) => (
-              <select key={key} aria-label={label} className="finance-input" value={(filters as any)[key]} onChange={(event) => setFilters({ ...filters, [key]: event.target.value })}>
-                {(values as string[]).map((value) => <option key={value}>{value}</option>)}
-              </select>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-8">
+            <FilterField label="Search" className="min-w-0 sm:col-span-2 xl:col-span-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                <input className="finance-input pl-9" placeholder="Search project code, client, site" value={filters.q} onChange={(event) => setFilters({ ...filters, q: event.target.value })} />
+              </div>
+            </FilterField>
+            {filterConfigs.map(({ key, label, allLabel, values }) => (
+              <FilterField key={key} label={label} className="min-w-0">
+                <select aria-label={label} className="finance-input" value={filters[key]} onChange={(event) => setFilters({ ...filters, [key]: event.target.value })}>
+                  <option value="All">{allLabel}</option>
+                  {options(values).map((value) => <option key={value}>{value}</option>)}
+                </select>
+              </FilterField>
             ))}
-            <input type="date" className="finance-input" value={filters.from} onChange={(event) => setFilters({ ...filters, from: event.target.value })} />
-            <input type="date" className="finance-input" value={filters.to} onChange={(event) => setFilters({ ...filters, to: event.target.value })} />
+            <FilterField label="Start Date From" className="min-w-0">
+              <input type="date" className="finance-input" value={filters.from} onChange={(event) => setFilters({ ...filters, from: event.target.value })} />
+            </FilterField>
+            <FilterField label="Start Date To" className="min-w-0">
+              <input type="date" className="finance-input" value={filters.to} onChange={(event) => setFilters({ ...filters, to: event.target.value })} />
+            </FilterField>
           </div>
         </div>
       </div>
@@ -590,6 +600,15 @@ function Field({ label, children, className }: { label: string; children: React.
   return (
     <label className={className}>
       <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function FilterField({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <label className={className}>
+      <span className="mb-2 block text-[11px] font-semibold tracking-wide text-muted-foreground">{label}</span>
       {children}
     </label>
   );
